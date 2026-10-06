@@ -1,0 +1,19 @@
+# Render blueprint: one free web service that runs the API and serves the built frontend.
+# Secrets are entered in the Render dashboard (sync: false), never stored in this file.
+services:
+  - type: web
+    name: van-dashboard
+    runtime: node
+    plan: free
+    buildCommand: npm run build:deploy
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_USERNAME
+        sync: false
+      - key: APP_PASSWORD
+        sync: false

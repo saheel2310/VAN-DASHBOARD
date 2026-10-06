@@ -1,0 +1,9 @@
+node_modules/
+frontend/dist/
+.vite/
+backend/data/
+data/
+*.tmp
+*.xlsx
+*.xls
+.env
