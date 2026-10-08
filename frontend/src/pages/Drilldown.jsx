@@ -17,11 +17,10 @@ const LEVELS = {
 };
 
 export default function Drilldown({ route, navigateTo, defaults = {} }) {
-  const [search, setSearch]   = useState('');
-  const [rows, setRows]       = useState([]);
-  const [noData, setNoData]   = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError]     = useState('');
+  const [search, setSearch] = useState('');
+  // Loaded rows are kept together with the request they answer, so rows from the previous
+  // level (e.g. sales reps) are never drawn with the next level's layout (parties).
+  const [result, setResult] = useState({ key: null, rows: [], noData: '', error: '' });
 
   const params       = route.params;
   const year         = params.get('year')         || defaults.year    || '';
@@ -45,17 +44,24 @@ export default function Drilldown({ route, navigateTo, defaults = {} }) {
   const base = { year, month, payTerm, newOnly, category, metric };
   const path = { ...base, regionalHead, groupHead, salesRep };
 
+  const requestKey = JSON.stringify([level, path]);
+
   useEffect(() => {
-    if (!year) { setLoading(false); return; }
-    setLoading(true);
-    setError('');
+    if (!year) return;
+    let cancelled = false;
     setSearch('');
     LEVELS[level].fetch(path)
-      .then(data => { setRows(data.rows || []); setNoData(data.noData || ''); })
-      .catch(err => { setRows([]); setError(err.message); })
-      .finally(() => setLoading(false));
+      .then(data => { if (!cancelled) setResult({ key: requestKey, rows: data.rows || [], noData: data.noData || '', error: '' }); })
+      .catch(err => { if (!cancelled) setResult({ key: requestKey, rows: [], noData: '', error: err.message }); });
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, month, payTerm, newOnly, category, metric, regionalHead, groupHead, salesRep]);
+  }, [requestKey]);
+
+  const ready = result.key === requestKey;
+  const loading = Boolean(year) && !ready;
+  const rows = ready ? result.rows : [];
+  const noData = ready ? result.noData : '';
+  const error = ready ? result.error : '';
 
   const q = search.trim().toLowerCase();
   const displayRows = isParties && q
@@ -162,7 +168,7 @@ export default function Drilldown({ route, navigateTo, defaults = {} }) {
               )}
               {isParties
                 ? displayRows.map(p => {
-                    const badge = STATUS_BADGES[p.status];
+                    const badge = STATUS_BADGES[p.status] || { label: p.status || '—', className: 'gray' };
                     return (
                       <tr key={p.partyCode}>
                         <td style={{ fontWeight: 650, color: '#1f2937' }}>{p.partyCode || '—'}</td>
